@@ -65,9 +65,9 @@ export async function GET(request: Request) {
 
     try {
         const all  = await loadCompanyList(apiKey);
-        // 상장사(stock_code 있는 것)만 필터링 후 검색어 매칭, 최대 20개
+        // 상장사(stock_code가 실제 6자리 코드인 것)만 필터링 후 검색어 매칭, 최대 20개
         const list = all
-            .filter(co => co.stock_code && co.corp_name.includes(query))
+            .filter(co => co.stock_code.trim() && co.corp_name.includes(query))
             .slice(0, 20);
         return NextResponse.json({ list });
     } catch (e: any) {
