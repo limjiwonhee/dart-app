@@ -1,0 +1,9 @@
+/node_modules
+/.next/
+/out/
+
+# 환경변수 — 절대 커밋 금지
+.env*.local
+
+npm-debug.log*
+.DS_Store
