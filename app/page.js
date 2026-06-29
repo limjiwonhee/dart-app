@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import NavTabs from './components/NavTabs';
 
 /* ===== 상수 ===== */
 const COMPANIES = [
@@ -226,6 +227,7 @@ export default function Page() {
             <header className="app-header">
                 <h1>DART 손익계산서 조회</h1>
                 <p>금융감독원 전자공시시스템 Open API &nbsp;·&nbsp; 삼성전자 &nbsp;·&nbsp; SK하이닉스 &nbsp;·&nbsp; 두산로보틱스</p>
+                <NavTabs />
             </header>
 
             <main className="wrap">
