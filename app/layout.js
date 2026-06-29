@@ -1,4 +1,5 @@
 import './globals.css';
+import { CompanyProvider } from './providers/CompanyContext';
 
 export const metadata = {
     title: 'DART 손익계산서 조회',
@@ -8,7 +9,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
     return (
         <html lang="ko">
-            <body>{children}</body>
+            <body>
+                <CompanyProvider>
+                    {children}
+                </CompanyProvider>
+            </body>
         </html>
     );
 }

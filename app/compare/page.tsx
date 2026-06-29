@@ -6,22 +6,18 @@ import {
     Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import NavTabs from '../components/NavTabs';
+import CompanySelector, { COMPANY_COLORS } from '../components/CompanySelector';
+import { useCompanies } from '../providers/CompanyContext';
 
 /* ===== 상수 ===== */
-const COMPANIES = [
-    { name: '삼성전자',     corp_code: '00126380', color: '#1428A0' },
-    { name: 'SK하이닉스',   corp_code: '00164779', color: '#EA0029' },
-    { name: '두산로보틱스', corp_code: '01105153', color: '#16a34a' },
-] as const;
-
 const ACCOUNT_OPTIONS = [
-    { label: '매출액',                  keys: ['매출액', '수익(매출액)', '영업수익'] },
-    { label: '매출총이익',              keys: ['매출총이익', '매출총손실'] },
-    { label: '영업이익',                keys: ['영업이익', '영업이익(손실)', '영업손실'] },
-    { label: '당기순이익',              keys: ['당기순이익', '당기순이익(손실)', '당기순손실'] },
-    { label: '판매비와관리비',          keys: ['판매비와관리비', '판매비와일반관리비'] },
-    { label: '법인세비용차감전순이익',  keys: ['법인세비용차감전순이익', '법인세비용차감전순이익(손실)', '법인세차감전순이익'] },
-    { label: '법인세비용',              keys: ['법인세비용'] },
+    { label: '매출액',                 keys: ['매출액', '수익(매출액)', '영업수익'] },
+    { label: '매출총이익',             keys: ['매출총이익', '매출총손실'] },
+    { label: '영업이익',               keys: ['영업이익', '영업이익(손실)', '영업손실'] },
+    { label: '당기순이익',             keys: ['당기순이익', '당기순이익(손실)', '당기순손실'] },
+    { label: '판매비와관리비',         keys: ['판매비와관리비', '판매비와일반관리비'] },
+    { label: '법인세비용차감전순이익', keys: ['법인세비용차감전순이익', '법인세비용차감전순이익(손실)', '법인세차감전순이익'] },
+    { label: '법인세비용',             keys: ['법인세비용'] },
 ];
 
 const ALL_YEARS = ['2020', '2021', '2022', '2023', '2024', '2025'];
@@ -76,7 +72,6 @@ async function fetchAmount(
     keys: readonly string[],
 ): Promise<number | null> {
     const FATAL = ['010', '011', '020', '100', '800'];
-
     for (const fsDiv of ['CFS', 'OFS']) {
         try {
             const params = new URLSearchParams({
@@ -85,13 +80,10 @@ async function fetchAmount(
             const res = await fetch(`/api/financial?${params}`);
             if (!res.ok) continue;
             const data = await res.json();
-
             if (FATAL.includes(data.status)) return null;
             if (data.status !== '000' || !data.list?.length) continue;
-
             const items = extractIsItems(data.list);
             if (!items) continue;
-
             const found = findAccount(items, keys);
             if (found?.thstrm_amount) {
                 const n = parseAmt(found.thstrm_amount);
@@ -106,13 +98,14 @@ async function fetchAmount(
 
 /* ===== 메인 페이지 ===== */
 export default function ComparePage() {
-    const [startYear,   setStartYear]   = useState('2020');
-    const [endYear,     setEndYear]     = useState('2025');
-    const [reprtCode,   setReprtCode]   = useState('11011');
-    const [accountIdx,  setAccountIdx]  = useState(2); // 기본값: 영업이익
-    const [loading,     setLoading]     = useState(false);
-    const [chartData,   setChartData]   = useState<ChartRow[]>([]);
-    const [fetched,     setFetched]     = useState(false);
+    const { selected } = useCompanies();
+    const [startYear,  setStartYear]  = useState('2020');
+    const [endYear,    setEndYear]    = useState('2025');
+    const [reprtCode,  setReprtCode]  = useState('11011');
+    const [accountIdx, setAccountIdx] = useState(2);
+    const [loading,    setLoading]    = useState(false);
+    const [chartData,  setChartData]  = useState<ChartRow[]>([]);
+    const [fetched,    setFetched]    = useState(false);
 
     const years = ALL_YEARS.slice(
         ALL_YEARS.indexOf(startYear),
@@ -120,23 +113,25 @@ export default function ComparePage() {
     );
 
     async function handleSearch() {
+        if (selected.length === 0) {
+            alert('회사를 1개 이상 선택해주세요.');
+            return;
+        }
         if (ALL_YEARS.indexOf(startYear) > ALL_YEARS.indexOf(endYear)) {
             alert('시작연도가 종료연도보다 클 수 없습니다.');
             return;
         }
-
         const account = ACCOUNT_OPTIONS[accountIdx];
         setLoading(true);
         setFetched(false);
 
-        // 연도별 × 회사별 전체 병렬 조회
         const rows: ChartRow[] = await Promise.all(
             years.map(async (year) => {
                 const amounts = await Promise.all(
-                    COMPANIES.map(co => fetchAmount(co.corp_code, year, reprtCode, account.keys))
+                    selected.map(co => fetchAmount(co.corp_code, year, reprtCode, account.keys))
                 );
                 const row: ChartRow = { year };
-                COMPANIES.forEach((co, i) => { row[co.name] = amounts[i]; });
+                selected.forEach((co, i) => { row[co.corp_name] = amounts[i]; });
                 return row;
             })
         );
@@ -147,18 +142,23 @@ export default function ComparePage() {
     }
 
     const selectedLabel = ACCOUNT_OPTIONS[accountIdx].label;
+    const headerSub = selected.length > 0
+        ? selected.map(co => co.corp_name).join(' · ')
+        : '회사를 선택해주세요';
 
     return (
         <>
             <header className="app-header">
                 <h1>DART 손익계산서 조회</h1>
-                <p>금융감독원 전자공시시스템 Open API &nbsp;·&nbsp; 삼성전자 &nbsp;·&nbsp; SK하이닉스 &nbsp;·&nbsp; 두산로보틱스</p>
+                <p>금융감독원 전자공시시스템 Open API &nbsp;·&nbsp; {headerSub}</p>
                 <NavTabs />
             </header>
 
             <main className="wrap">
-                {/* ── 필터 ── */}
+                {/* 검색 카드 */}
                 <div className="search-card">
+                    <CompanySelector />
+                    <div className="selector-divider" />
                     <div className="search-card-title">조회 조건</div>
                     <div className="search-row">
                         <div className="field">
@@ -191,33 +191,43 @@ export default function ComparePage() {
                                 ))}
                             </select>
                         </div>
-                        <button className="btn-query" onClick={handleSearch} disabled={loading}>
+                        <button
+                            className="btn-query"
+                            onClick={handleSearch}
+                            disabled={loading || selected.length === 0}
+                        >
                             {loading ? '조회 중...' : '조회'}
                         </button>
                     </div>
                 </div>
 
-                {/* ── 로딩 ── */}
-                {loading && (
+                {/* 회사 미선택 */}
+                {selected.length === 0 && (
                     <div className="chart-state">
-                        <div className="spinner" />
-                        <div className="state-text">{years.length}개 연도 × 3개사 데이터를 불러오는 중...</div>
+                        <div className="state-text">위 검색창에서 회사를 선택해주세요.</div>
                     </div>
                 )}
 
-                {/* ── 초기 안내 ── */}
-                {!loading && !fetched && (
+                {/* 로딩 */}
+                {selected.length > 0 && loading && (
                     <div className="chart-state">
+                        <div className="spinner" />
                         <div className="state-text">
-                            연도 범위와 항목을 선택하고 조회 버튼을 누르세요.
+                            {years.length}개 연도 × {selected.length}개사 데이터를 불러오는 중...
                         </div>
                     </div>
                 )}
 
-                {/* ── 차트 + 테이블 ── */}
-                {!loading && fetched && (
+                {/* 초기 안내 */}
+                {selected.length > 0 && !loading && !fetched && (
+                    <div className="chart-state">
+                        <div className="state-text">연도 범위와 항목을 선택하고 조회 버튼을 누르세요.</div>
+                    </div>
+                )}
+
+                {/* 차트 + 테이블 */}
+                {selected.length > 0 && !loading && fetched && (
                     <>
-                        {/* 꺾은선 그래프 */}
                         <div className="chart-card">
                             <div className="chart-card-title">
                                 {selectedLabel} 추이 비교
@@ -258,17 +268,15 @@ export default function ComparePage() {
                                             fontSize: '0.85rem',
                                         }}
                                     />
-                                    <Legend
-                                        wrapperStyle={{ fontSize: '0.88rem', paddingTop: '12px' }}
-                                    />
-                                    {COMPANIES.map(co => (
+                                    <Legend wrapperStyle={{ fontSize: '0.88rem', paddingTop: '12px' }} />
+                                    {selected.map((co, i) => (
                                         <Line
                                             key={co.corp_code}
                                             type="monotone"
-                                            dataKey={co.name}
-                                            stroke={co.color}
+                                            dataKey={co.corp_name}
+                                            stroke={COMPANY_COLORS[i]}
                                             strokeWidth={2.5}
-                                            dot={{ r: 5, fill: co.color, strokeWidth: 0 }}
+                                            dot={{ r: 5, fill: COMPANY_COLORS[i], strokeWidth: 0 }}
                                             activeDot={{ r: 7 }}
                                             connectNulls={false}
                                         />
@@ -289,37 +297,29 @@ export default function ComparePage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {COMPANIES.map(co => {
-                                            const colors: Record<string, string> = {
-                                                '삼성전자': '#1428A0',
-                                                'SK하이닉스': '#EA0029',
-                                                '두산로보틱스': '#16a34a',
-                                            };
-                                            return (
-                                                <tr key={co.corp_code}>
-                                                    <td className="acc-name">
-                                                        <span
-                                                            className="co-dot"
-                                                            style={{ background: colors[co.name] }}
-                                                        />
-                                                        {co.name}
-                                                    </td>
-                                                    {years.map(y => {
-                                                        const row = chartData.find(r => r.year === y);
-                                                        const val = row?.[co.name] as number | null | undefined;
-                                                        const n = val ?? null;
-                                                        return (
-                                                            <td
-                                                                key={y}
-                                                                className={`num${n !== null && n < 0 ? ' neg' : ''}`}
-                                                            >
-                                                                {fmtEok(n)}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            );
-                                        })}
+                                        {selected.map((co, i) => (
+                                            <tr key={co.corp_code}>
+                                                <td className="acc-name">
+                                                    <span
+                                                        className="co-dot"
+                                                        style={{ background: COMPANY_COLORS[i] }}
+                                                    />
+                                                    {co.corp_name}
+                                                </td>
+                                                {years.map(y => {
+                                                    const row = chartData.find(r => r.year === y);
+                                                    const val = row?.[co.corp_name] as number | null | undefined;
+                                                    return (
+                                                        <td
+                                                            key={y}
+                                                            className={`num${val != null && val < 0 ? ' neg' : ''}`}
+                                                        >
+                                                            {fmtEok(val ?? null)}
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>

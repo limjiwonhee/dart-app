@@ -2,14 +2,10 @@
 
 import { useState } from 'react';
 import NavTabs from './components/NavTabs';
+import CompanySelector, { COMPANY_COLORS } from './components/CompanySelector';
+import { useCompanies } from './providers/CompanyContext';
 
 /* ===== 상수 ===== */
-const COMPANIES = [
-    { name: '삼성전자',     corp_code: '00126380', cls: 'c-samsung' },
-    { name: 'SK하이닉스',   corp_code: '00164779', cls: 'c-skhynix' },
-    { name: '두산로보틱스', corp_code: '01105153', cls: 'c-doosan'  },
-];
-
 const ACCOUNTS = [
     { label: '매출액',              keys: ['매출액', '수익(매출액)', '영업수익'],                                                                   hl: false },
     { label: '매출원가',            keys: ['매출원가'],                                                                                              hl: false },
@@ -22,13 +18,6 @@ const ACCOUNTS = [
     { label: '법인세비용',          keys: ['법인세비용'],                                                                                            hl: false },
     { label: '당기순이익',          keys: ['당기순이익', '당기순이익(손실)', '당기순손실'],                                                         hl: true  },
 ];
-
-// 시사점 패널용 회사 브랜드 색상
-const CO_COLORS = {
-    '삼성전자':     '#1428A0',
-    'SK하이닉스':   '#EA0029',
-    '두산로보틱스': '#005BAC',
-};
 
 /* ===== 유틸 함수 ===== */
 function parseAmt(s) {
@@ -63,7 +52,6 @@ function extractIsItems(list) {
     return cis.length ? cis : null;
 }
 
-// 증감률 계산 (prev가 음수여도 절댓값 기준)
 function growthRate(cur, prev) {
     if (cur === null || prev === null || prev === 0) return null;
     return ((cur - prev) / Math.abs(prev)) * 100;
@@ -75,8 +63,8 @@ function computeInsights(fetchedList) {
     const OPIN_KEYS = ACCOUNTS.find(a => a.label === '영업이익').keys;
     const NET_KEYS  = ACCOUNTS.find(a => a.label === '당기순이익').keys;
 
-    const companies = fetchedList.map(({ name, items }) => {
-        if (!items) return { name, available: false };
+    const companies = fetchedList.map(({ name, items, colorIdx }) => {
+        if (!items) return { name, colorIdx, available: false };
 
         const revAcc  = findAccount(items, REV_KEYS);
         const opinAcc = findAccount(items, OPIN_KEYS);
@@ -95,41 +83,34 @@ function computeInsights(fetchedList) {
         const opinMargin = (revCur && opinCur !== null) ? (opinCur / revCur) * 100 : null;
         const netMargin  = (revCur && netCur !== null)  ? (netCur  / revCur) * 100 : null;
 
-        // 자동 코멘트 태그
         const tags = [];
-
         if (revGrowth !== null) {
             if (revGrowth >= 10)      tags.push({ type: 'up',   text: '매출 큰 폭 성장' });
             else if (revGrowth >= 0)  tags.push({ type: 'up',   text: '매출 소폭 성장' });
             else                      tags.push({ type: 'down', text: '매출 감소' });
         }
-
         if (opinMargin !== null) {
             if (opinMargin >= 15)     tags.push({ type: 'good', text: '수익성 우수' });
             else if (opinMargin >= 5) tags.push({ type: 'ok',   text: '수익성 양호' });
             else                      tags.push({ type: 'warn', text: '수익성 개선 필요' });
         }
-
         if (netCur !== null && netPrev !== null) {
             if (netCur > netPrev)     tags.push({ type: 'up',   text: '순이익 개선' });
             else                      tags.push({ type: 'down', text: '순이익 감소' });
         }
 
-        return { name, available: true, revGrowth, opinGrowth, netGrowth, opinMargin, netMargin, tags };
+        return { name, colorIdx, available: true, revGrowth, opinGrowth, netGrowth, opinMargin, netMargin, tags };
     });
 
-    // 종합: 영업이익률 1위 / 매출 성장률 1위
     const withData = companies.filter(c => c.available);
-
     const opinMarginLeader = [...withData]
         .filter(c => c.opinMargin !== null)
         .sort((a, b) => b.opinMargin - a.opinMargin)[0] ?? null;
-
     const revGrowthLeader = [...withData]
         .filter(c => c.revGrowth !== null)
         .sort((a, b) => b.revGrowth - a.revGrowth)[0] ?? null;
 
-    return { companies, opinMarginLeader, revGrowthLeader };
+    return { companies, opinMarginLeader, revGrowthLeader, total: withData.length };
 }
 
 /* ===== API 호출 ===== */
@@ -141,7 +122,6 @@ async function callApi(corpCode, year, reprtCode, fsDiv) {
 }
 
 /* ===== 서브 컴포넌트 ===== */
-
 function AmountCell({ rawAmt }) {
     const n = parseAmt(rawAmt);
     if (n === null) return <td className="na">-</td>;
@@ -152,7 +132,6 @@ function FinancialTable({ items }) {
     const first = items[0] || {};
     const thNm  = first.thstrm_nm || '당기';
     const frNm  = first.frmtrm_nm || '전기';
-
     return (
         <div className="tbl-wrap">
             <span className="tbl-unit">단위: 억원</span>
@@ -181,15 +160,16 @@ function FinancialTable({ items }) {
     );
 }
 
-function CompanyCard({ company, state }) {
+function CompanyCard({ company, colorIdx, state }) {
+    const color = COMPANY_COLORS[colorIdx] || '#1a73e8';
     const badgeText = state.status === 'ok'
         ? (state.fsDiv === 'CFS' ? '연결재무제표' : '개별재무제표')
         : '-';
 
     return (
         <div className="co-card">
-            <div className={`co-head ${company.cls}`}>
-                <span className="co-name">{company.name}</span>
+            <div className="co-head" style={{ background: `linear-gradient(135deg, ${color}cc, ${color})` }}>
+                <span className="co-name">{company.corp_name}</span>
                 <span className="fs-tag">{badgeText}</span>
             </div>
             <div className="co-body">
@@ -216,7 +196,6 @@ function CompanyCard({ company, state }) {
     );
 }
 
-// 지표 한 행: 라벨 + 수치(증감률 or 비율)
 function MetricRow({ label, value }) {
     if (value === null || value === undefined) {
         return (
@@ -231,7 +210,6 @@ function MetricRow({ label, value }) {
     const arrow = isPos ? '▲' : isNeg ? '▼' : '';
     const cls   = isPos ? 'up' : isNeg ? 'down' : 'neutral';
     const text  = `${isPos ? '+' : ''}${value.toFixed(1)}%`;
-
     return (
         <div className="metric-row">
             <span className="metric-label">{label}</span>
@@ -243,12 +221,10 @@ function MetricRow({ label, value }) {
     );
 }
 
-// 시사점 패널
 function InsightsPanel({ insights }) {
     return (
         <aside className="insights-panel">
             <div className="insights-header">⚡ 시사점</div>
-
             {!insights ? (
                 <div className="insights-empty">
                     <div className="state-text">조회 후 자동 생성됩니다.</div>
@@ -259,26 +235,23 @@ function InsightsPanel({ insights }) {
                         <div key={co.name} className="insight-co">
                             <div
                                 className="insight-co-name"
-                                style={{ borderLeftColor: CO_COLORS[co.name] || '#ccc' }}
+                                style={{ borderLeftColor: COMPANY_COLORS[co.colorIdx] || '#ccc' }}
                             >
                                 {co.name}
                             </div>
-
                             {!co.available ? (
                                 <div className="insight-na">데이터 없음</div>
                             ) : (
                                 <>
-                                    <MetricRow label="매출 증감률"      value={co.revGrowth}  />
-                                    <MetricRow label="영업이익 증감률"   value={co.opinGrowth} />
-                                    <MetricRow label="순이익 증감률"     value={co.netGrowth}  />
-                                    <MetricRow label="영업이익률"        value={co.opinMargin} />
-                                    <MetricRow label="순이익률"          value={co.netMargin}  />
+                                    <MetricRow label="매출 증감률"     value={co.revGrowth}  />
+                                    <MetricRow label="영업이익 증감률" value={co.opinGrowth} />
+                                    <MetricRow label="순이익 증감률"   value={co.netGrowth}  />
+                                    <MetricRow label="영업이익률"      value={co.opinMargin} />
+                                    <MetricRow label="순이익률"        value={co.netMargin}  />
                                     {co.tags.length > 0 && (
                                         <div className="insight-tags">
                                             {co.tags.map((tag, i) => (
-                                                <span key={i} className={`insight-tag i-${tag.type}`}>
-                                                    {tag.text}
-                                                </span>
+                                                <span key={i} className={`insight-tag i-${tag.type}`}>{tag.text}</span>
                                             ))}
                                         </div>
                                     )}
@@ -294,7 +267,7 @@ function InsightsPanel({ insights }) {
                                 <p className="summary-item">
                                     <strong className="summary-leader">{insights.opinMarginLeader.name}</strong>가{' '}
                                     영업이익률 <strong>{insights.opinMarginLeader.opinMargin.toFixed(1)}%</strong>로{' '}
-                                    3사 중 수익성 최고
+                                    {insights.total > 1 ? `${insights.total}개사 중 ` : ''}수익성 최고
                                 </p>
                             )}
                             {insights.revGrowthLeader && (
@@ -305,7 +278,7 @@ function InsightsPanel({ insights }) {
                                         {insights.revGrowthLeader.revGrowth >= 0 ? '+' : ''}
                                         {insights.revGrowthLeader.revGrowth.toFixed(1)}%
                                     </strong>
-                                    로 3사 중 성장률 최고
+                                    로 {insights.total > 1 ? `${insights.total}개사 중 ` : ''}성장률 최고
                                 </p>
                             )}
                         </div>
@@ -318,71 +291,76 @@ function InsightsPanel({ insights }) {
 
 /* ===== 메인 페이지 ===== */
 export default function Page() {
+    const { selected } = useCompanies();
     const [year,      setYear]      = useState('2025');
     const [reprtCode, setReprtCode] = useState('11011');
     const [busy,      setBusy]      = useState(false);
     const [insights,  setInsights]  = useState(null);
-
-    const [results, setResults] = useState(
-        Object.fromEntries(COMPANIES.map(co => [co.corp_code, { status: 'idle' }]))
-    );
+    const [results,   setResults]   = useState({});
 
     function patch(corpCode, update) {
         setResults(prev => ({ ...prev, [corpCode]: update }));
     }
 
-    // state 패치 + items 반환 (insights 계산에 사용)
-    async function fetchOne(co) {
-        patch(co.corp_code, { status: 'loading' });
+    async function fetchOne(co, colorIdx) {
+        const FATAL = ['010', '011', '020', '100', '800'];
         try {
             let data = await callApi(co.corp_code, year, reprtCode, 'CFS');
             const cfsItems = extractIsItems(data.list);
             if (data.status === '000' && cfsItems) {
                 patch(co.corp_code, { status: 'ok', items: cfsItems, fsDiv: 'CFS' });
-                return { name: co.name, items: cfsItems };
+                return { name: co.corp_name, items: cfsItems, colorIdx };
             }
-
-            const FATAL = ['010', '011', '020', '100', '800'];
             if (FATAL.includes(data.status)) {
                 patch(co.corp_code, { status: 'err', msg: `API 오류 (${data.status}): ${data.message}` });
-                return { name: co.name, items: null };
+                return { name: co.corp_name, items: null, colorIdx };
             }
 
             data = await callApi(co.corp_code, year, reprtCode, 'OFS');
             const ofsItems = extractIsItems(data.list);
             if (data.status !== '000' || !ofsItems) {
                 patch(co.corp_code, { status: 'err', msg: data.message || '해당 기간의 데이터가 없습니다.' });
-                return { name: co.name, items: null };
+                return { name: co.corp_name, items: null, colorIdx };
             }
-
             patch(co.corp_code, { status: 'ok', items: ofsItems, fsDiv: 'OFS' });
-            return { name: co.name, items: ofsItems };
-
+            return { name: co.corp_name, items: ofsItems, colorIdx };
         } catch (e) {
             patch(co.corp_code, { status: 'err', msg: e.message });
-            return { name: co.name, items: null };
+            return { name: co.corp_name, items: null, colorIdx };
         }
     }
 
     async function handleSearch() {
+        if (selected.length === 0) {
+            alert('회사를 1개 이상 선택해주세요.');
+            return;
+        }
         setBusy(true);
         setInsights(null);
-        const fetched = await Promise.all(COMPANIES.map(fetchOne));
+        setResults(Object.fromEntries(selected.map(co => [co.corp_code, { status: 'loading' }])));
+        const fetched = await Promise.all(selected.map((co, i) => fetchOne(co, i)));
         setInsights(computeInsights(fetched));
         setBusy(false);
     }
+
+    const gridClass = `results-grid grid-${Math.max(selected.length, 1)}`;
+    const headerSub = selected.length > 0
+        ? selected.map(co => co.corp_name).join(' · ')
+        : '회사를 선택해주세요';
 
     return (
         <>
             <header className="app-header">
                 <h1>DART 손익계산서 조회</h1>
-                <p>금융감독원 전자공시시스템 Open API &nbsp;·&nbsp; 삼성전자 &nbsp;·&nbsp; SK하이닉스 &nbsp;·&nbsp; 두산로보틱스</p>
+                <p>금융감독원 전자공시시스템 Open API &nbsp;·&nbsp; {headerSub}</p>
                 <NavTabs />
             </header>
 
             <main className="wrap">
-                {/* 검색 영역 */}
+                {/* 검색 카드 */}
                 <div className="search-card">
+                    <CompanySelector />
+                    <div className="selector-divider" />
                     <div className="search-card-title">조회 조건</div>
                     <div className="search-row">
                         <div className="field">
@@ -405,21 +383,32 @@ export default function Page() {
                                 <option value="11014">3분기</option>
                             </select>
                         </div>
-                        <button className="btn-query" onClick={handleSearch} disabled={busy}>
+                        <button className="btn-query" onClick={handleSearch} disabled={busy || selected.length === 0}>
                             {busy ? '조회 중...' : '조회'}
                         </button>
                     </div>
                 </div>
 
-                {/* 재무카드(75%) + 시사점(25%) */}
-                <div className="main-content">
-                    <div className="results-grid">
-                        {COMPANIES.map(co => (
-                            <CompanyCard key={co.corp_code} company={co} state={results[co.corp_code]} />
-                        ))}
+                {/* 빈 선택 상태 */}
+                {selected.length === 0 ? (
+                    <div className="no-companies-msg">
+                        <div className="state-text">위 검색창에서 회사를 선택해주세요.</div>
                     </div>
-                    <InsightsPanel insights={insights} />
-                </div>
+                ) : (
+                    <div className="main-content">
+                        <div className={gridClass}>
+                            {selected.map((co, i) => (
+                                <CompanyCard
+                                    key={co.corp_code}
+                                    company={co}
+                                    colorIdx={i}
+                                    state={results[co.corp_code] || { status: 'idle' }}
+                                />
+                            ))}
+                        </div>
+                        <InsightsPanel insights={insights} />
+                    </div>
+                )}
             </main>
         </>
     );

@@ -87,12 +87,154 @@ body {
 .btn-query:active   { transform: scale(0.97); }
 .btn-query:disabled { background: #a8c4ed; cursor: not-allowed; box-shadow: none; }
 
+/* ── COMPANY SELECTOR ── */
+.co-selector { margin-bottom: 4px; }
+.selector-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #9aa0a6;
+    text-transform: uppercase;
+    letter-spacing: 0.9px;
+    margin-bottom: 10px;
+}
+.co-selector-row { position: relative; }
+.selector-input-group { display: flex; gap: 8px; }
+.selector-input {
+    flex: 1;
+    height: 40px;
+    padding: 0 14px;
+    border: 1.5px solid #dadce0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    background: #fafafa;
+    color: #202124;
+    transition: border-color 0.18s, box-shadow 0.18s;
+}
+.selector-input:focus {
+    border-color: #1a73e8;
+    box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+    background: white;
+}
+.selector-input:disabled { background: #f1f3f4; color: #9aa0a6; cursor: not-allowed; }
+.btn-search-co {
+    height: 40px;
+    padding: 0 20px;
+    background: white;
+    color: #1a73e8;
+    border: 1.5px solid #1a73e8;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+}
+.btn-search-co:hover:not(:disabled) { background: #1a73e8; color: white; }
+.btn-search-co:disabled { border-color: #ccc; color: #ccc; cursor: not-allowed; }
+
+/* 검색 드롭다운 */
+.selector-drop {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    background: white;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    z-index: 100;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.selector-drop-msg {
+    padding: 14px 16px;
+    font-size: 0.84rem;
+    color: #9aa0a6;
+    text-align: center;
+}
+.selector-drop-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.12s;
+    text-align: left;
+}
+.selector-drop-item:hover:not(:disabled) { background: #f5f7ff; }
+.selector-drop-item.sel-in { opacity: 0.5; cursor: not-allowed; }
+.drop-co-name { font-size: 0.88rem; color: #202124; font-weight: 500; }
+.drop-co-meta { display: flex; align-items: center; gap: 6px; }
+.cls-badge {
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+.cls-badge.cls-Y { background: #e8f0fe; color: #1557b0; }
+.cls-badge.cls-K { background: #e6f4ea; color: #137333; }
+.cls-badge.cls-N { background: #fef7e0; color: #8a5c00; }
+.cls-badge.cls-E { background: #f1f3f4; color: #5f6368; }
+.already-label { font-size: 0.68rem; color: #9aa0a6; }
+
+/* 선택된 칩 */
+.co-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.co-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px 5px 8px;
+    border: 1.5px solid;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.chip-remove {
+    border: none;
+    background: none;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 2px;
+    opacity: 0.55;
+    color: inherit;
+    transition: opacity 0.15s;
+}
+.chip-remove:hover { opacity: 1; }
+
+/* 구분선 */
+.selector-divider {
+    border: none;
+    border-top: 1px solid #f1f3f4;
+    margin: 16px 0;
+}
+
+/* 회사 미선택 메시지 */
+.no-companies-msg {
+    background: white;
+    border-radius: 14px;
+    padding: 60px 20px;
+    text-align: center;
+    box-shadow: 0 2px 14px rgba(0,0,0,0.07);
+}
+
 /* ── RESULTS GRID ── */
 .results-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
 }
+.results-grid.grid-1 { grid-template-columns: 1fr; }
+.results-grid.grid-2 { grid-template-columns: 1fr 1fr; }
+.results-grid.grid-3 { grid-template-columns: repeat(3, 1fr); }
 
 /* ── COMPANY CARD ── */
 .co-card {
@@ -372,9 +514,9 @@ td.na  { text-align: right; color: #c8cdd3; font-size: 0.82rem; }
     .main-content { grid-template-columns: 1fr; }
     .insights-panel { position: static; }
 }
-@media (max-width: 1120px) { .results-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 1120px) { .results-grid.grid-3 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 720px) {
-    .results-grid { grid-template-columns: 1fr; }
+    .results-grid.grid-2, .results-grid.grid-3 { grid-template-columns: 1fr; }
     .app-header { padding: 18px 20px; }
     .app-header h1 { font-size: 1.25rem; }
     .wrap { padding: 18px 14px; }
