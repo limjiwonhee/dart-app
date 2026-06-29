@@ -6,7 +6,7 @@ import { useState } from 'react';
 const COMPANIES = [
     { name: '삼성전자',     corp_code: '00126380', cls: 'c-samsung' },
     { name: 'SK하이닉스',   corp_code: '00164779', cls: 'c-skhynix' },
-    { name: '두산로보틱스', corp_code: '01569603', cls: 'c-doosan'  },
+    { name: '두산로보틱스', corp_code: '01105153', cls: 'c-doosan'  },
 ];
 
 const ACCOUNTS = [
@@ -163,7 +163,7 @@ function CompanyCard({ company, state }) {
 
 /* ===== 메인 페이지 ===== */
 export default function Page() {
-    const [year,       setYear]       = useState('2023');
+    const [year,       setYear]       = useState('2025');
     const [reprtCode,  setReprtCode]  = useState('11011');
     const [busy,       setBusy]       = useState(false);
 
@@ -240,6 +240,7 @@ export default function Page() {
                                 value={year}
                                 onChange={e => setYear(e.target.value)}
                             >
+                                <option value="2025">2025년</option>
                                 <option value="2024">2024년</option>
                                 <option value="2023">2023년</option>
                                 <option value="2022">2022년</option>
