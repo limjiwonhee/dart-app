@@ -192,6 +192,109 @@ td.num {
 td.neg { color: #c62828; }
 td.na  { text-align: right; color: #c8cdd3; font-size: 0.82rem; }
 
+/* ── MAIN CONTENT LAYOUT (카드 75% + 시사점 25%) ── */
+.main-content {
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+/* ── INSIGHTS PANEL ── */
+.insights-panel {
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 2px 14px rgba(0,0,0,0.07);
+    overflow: hidden;
+    position: sticky;
+    top: 20px;
+}
+.insights-header {
+    padding: 13px 16px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #202124;
+    background: #f8f9fa;
+    border-bottom: 1.5px solid #e8eaed;
+    letter-spacing: 0.2px;
+}
+.insights-empty {
+    padding: 44px 16px;
+    text-align: center;
+}
+.insight-co {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f3f4;
+}
+.insight-co:last-of-type { border-bottom: none; }
+.insight-co-name {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #202124;
+    margin-bottom: 8px;
+    padding-left: 8px;
+    border-left: 3px solid #ccc;
+}
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2.5px 0;
+}
+.metric-label {
+    font-size: 0.74rem;
+    color: #888;
+}
+.metric-value {
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.metric-value.up      { color: #1a73e8; }
+.metric-value.down    { color: #c62828; }
+.metric-value.neutral { color: #5f6368; }
+.metric-arrow         { font-size: 0.65rem; }
+.metric-na            { font-size: 0.74rem; color: #ccc; }
+.insight-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 9px;
+}
+.insight-tag {
+    font-size: 0.66rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+.insight-tag.i-up   { background: #e8f0fe; color: #1557b0; }
+.insight-tag.i-down { background: #fce8e6; color: #c62828; }
+.insight-tag.i-good { background: #e6f4ea; color: #137333; }
+.insight-tag.i-ok   { background: #fef7e0; color: #8a5c00; }
+.insight-tag.i-warn { background: #fff0e0; color: #b45309; }
+.insight-na         { font-size: 0.78rem; color: #ccc; padding: 4px 0; }
+.insights-summary {
+    padding: 13px 16px;
+    background: #f8f9ff;
+    border-top: 1.5px solid #e8eaed;
+}
+.insights-summary-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #9aa0a6;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    margin-bottom: 9px;
+}
+.summary-item {
+    font-size: 0.76rem;
+    color: #3c4043;
+    line-height: 1.55;
+    margin-bottom: 7px;
+}
+.summary-item:last-child { margin-bottom: 0; }
+.summary-leader { color: #1a73e8; }
+
 /* ── NAV TABS ── */
 .nav-tabs {
     display: flex;
@@ -264,6 +367,11 @@ td.na  { text-align: right; color: #c8cdd3; font-size: 0.82rem; }
 }
 
 /* ── RESPONSIVE ── */
+/* main-content: 1200px 이하에서 시사점 패널을 아래로 이동 */
+@media (max-width: 1200px) {
+    .main-content { grid-template-columns: 1fr; }
+    .insights-panel { position: static; }
+}
 @media (max-width: 1120px) { .results-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 720px) {
     .results-grid { grid-template-columns: 1fr; }
