@@ -256,7 +256,7 @@ export default function ComparePage() {
                                     {selected.map((co, i) => (
                                         <Line
                                             key={co.corp_code}
-                                            type="monotone"
+                                            type="linear"
                                             dataKey={co.corp_name}
                                             stroke={COMPANY_COLORS[i]}
                                             strokeWidth={2.5}
