@@ -98,7 +98,19 @@ body {
     margin-bottom: 10px;
 }
 .co-selector-row { position: relative; }
-.selector-input-group { display: flex; gap: 8px; }
+.selector-input-group { display: flex; gap: 8px; align-items: center; position: relative; }
+
+/* 검색 인라인 스피너 */
+.search-spinner {
+    position: absolute;
+    right: 12px;
+    width: 16px; height: 16px;
+    border: 2px solid #dadce0;
+    border-top-color: #1a73e8;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    pointer-events: none;
+}
 .selector-input {
     flex: 1;
     height: 40px;
