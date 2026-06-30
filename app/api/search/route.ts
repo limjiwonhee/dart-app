@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import AdmZip from 'adm-zip';
-import { parseStringPromise } from 'xml2js';
 
 interface Company {
     corp_code:  string;
@@ -10,46 +9,69 @@ interface Company {
 }
 
 // 서버 메모리 캐시 (1시간)
-let cachedList: Company[] | null = null;
-let cacheTime  = 0;
+let cache: Company[] | null = null;
+let cacheTs = 0;
 const CACHE_TTL = 60 * 60 * 1000;
 
-async function loadCompanyList(apiKey: string): Promise<Company[]> {
+async function loadCorpList(apiKey: string): Promise<Company[]> {
     const now = Date.now();
-    if (cachedList && (now - cacheTime) < CACHE_TTL) return cachedList;
+    if (cache && now - cacheTs < CACHE_TTL) {
+        console.log('[search] cache hit:', cache.length, '개사');
+        return cache;
+    }
 
+    console.log('[search] DART corpCode.xml 다운로드 중...');
     const res = await fetch(
         `https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=${apiKey}`,
         { cache: 'no-store' },
     );
-    if (!res.ok) throw new Error(`기업 목록 다운로드 실패 (HTTP ${res.status})`);
+    if (!res.ok) throw new Error(`corpCode.xml 다운로드 실패 HTTP ${res.status}`);
 
-    const zipBuf = Buffer.from(await res.arrayBuffer());
-
-    // adm-zip으로 압축 해제
-    const zip  = new AdmZip(zipBuf);
-    const entry = zip.getEntries()[0];
+    const zipBuf  = Buffer.from(await res.arrayBuffer());
+    const zip     = new AdmZip(zipBuf);
+    const entry   = zip.getEntries()[0];
     if (!entry) throw new Error('ZIP 내 파일 없음');
+
     const xmlBuf = entry.getData();
 
-    // EUC-KR 인코딩 처리
-    const head = xmlBuf.slice(0, 200).toString('latin1');
-    const xml  = /encoding=["']euc-kr["']/i.test(head)
-        ? new TextDecoder('euc-kr').decode(xmlBuf)
-        : xmlBuf.toString('utf-8');
+    // EUC-KR / UTF-8 판별
+    const head = xmlBuf.slice(0, 300).toString('latin1');
+    let xml: string;
+    if (/encoding=["']euc-kr["']/i.test(head)) {
+        xml = new TextDecoder('euc-kr').decode(xmlBuf);
+    } else {
+        xml = xmlBuf.toString('utf-8');
+    }
 
-    // xml2js로 파싱
-    const parsed = await parseStringPromise(xml, { explicitArray: false });
-    const items: any[] = parsed?.result?.list ?? [];
+    // <list> 블록 파싱
+    const list: Company[] = [];
+    let pos = 0;
+    while (true) {
+        const s = xml.indexOf('<list>', pos);
+        if (s === -1) break;
+        const e = xml.indexOf('</list>', s);
+        if (e === -1) break;
+        const block = xml.slice(s + 6, e);
 
-    cachedList = items.map((item: any) => ({
-        corp_code:  item.corp_code  ?? '',
-        corp_name:  item.corp_name  ?? '',
-        stock_code: item.stock_code ?? '',
-        corp_cls:   item.corp_cls   ?? '',
-    }));
-    cacheTime = now;
-    return cachedList;
+        const get = (tag: string) => {
+            const i = block.indexOf(`<${tag}>`);
+            const j = block.indexOf(`</${tag}>`, i);
+            return i === -1 || j === -1 ? '' : block.slice(i + tag.length + 2, j).trim();
+        };
+
+        list.push({
+            corp_code:  get('corp_code'),
+            corp_name:  get('corp_name'),
+            stock_code: get('stock_code'),
+            corp_cls:   get('corp_cls'),
+        });
+        pos = e + 7;
+    }
+
+    console.log('[search] 파싱 완료:', list.length, '개사');
+    cache   = list;
+    cacheTs = now;
+    return list;
 }
 
 export async function GET(request: Request) {
@@ -60,17 +82,20 @@ export async function GET(request: Request) {
 
     const apiKey = process.env.DART_API_KEY;
     if (!apiKey) {
-        return NextResponse.json({ status: '500', message: 'API 키 미설정' }, { status: 500 });
+        return NextResponse.json({ status: '500', message: 'DART_API_KEY 환경변수 미설정' }, { status: 500 });
     }
 
     try {
-        const all  = await loadCompanyList(apiKey);
-        // 상장사(stock_code가 실제 6자리 코드인 것)만 필터링 후 검색어 매칭, 최대 20개
+        const all  = await loadCorpList(apiKey);
+        // 상장사(6자리 종목코드)만, 검색어 매칭, 최대 20개
         const list = all
             .filter(co => co.stock_code.trim() && co.corp_name.includes(query))
             .slice(0, 20);
+
+        console.log(`[search] query="${query}" → ${list.length}건`);
         return NextResponse.json({ list });
     } catch (e: any) {
+        console.error('[search] error:', e.message);
         return NextResponse.json({ status: '502', message: e.message }, { status: 502 });
     }
 }

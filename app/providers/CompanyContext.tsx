@@ -3,10 +3,10 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 
 export interface SelectedCompany {
-    corp_code:   string;
-    corp_name:   string;
-    corp_cls:    string;
-    stock_code?: string;
+    corp_code:  string;
+    corp_name:  string;
+    corp_cls:   string;
+    stock_code: string;
 }
 
 interface CompanyContextValue {
@@ -47,6 +47,6 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
 export function useCompanies(): CompanyContextValue {
     const ctx = useContext(CompanyContext);
-    if (!ctx) throw new Error('useCompanies must be used inside CompanyProvider');
+    if (!ctx) throw new Error('useCompanies must be inside CompanyProvider');
     return ctx;
 }

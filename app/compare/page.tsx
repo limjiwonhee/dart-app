@@ -9,26 +9,32 @@ import NavTabs from '../components/NavTabs';
 import CompanySelector, { COMPANY_COLORS } from '../components/CompanySelector';
 import { useCompanies } from '../providers/CompanyContext';
 
-/* ===== 상수 ===== */
+/* ── 상수 ── */
 const ACCOUNT_OPTIONS = [
-    { label: '매출액',                 keys: ['매출액', '수익(매출액)', '영업수익'] },
-    { label: '매출총이익',             keys: ['매출총이익', '매출총손실'] },
-    { label: '영업이익',               keys: ['영업이익', '영업이익(손실)', '영업손실'] },
-    { label: '당기순이익',             keys: ['당기순이익', '당기순이익(손실)', '당기순손실'] },
-    { label: '판매비와관리비',         keys: ['판매비와관리비', '판매비와일반관리비'] },
+    { label: '매출액',         keys: ['매출액', '수익(매출액)', '영업수익'] },
+    { label: '매출총이익',     keys: ['매출총이익', '매출총손실'] },
+    { label: '영업이익',       keys: ['영업이익', '영업이익(손실)', '영업손실'] },
+    { label: '당기순이익',     keys: ['당기순이익', '당기순이익(손실)', '당기순손실'] },
+    { label: '판매비와관리비', keys: ['판매비와관리비', '판매비와일반관리비'] },
     { label: '법인세비용차감전순이익', keys: ['법인세비용차감전순이익', '법인세비용차감전순이익(손실)', '법인세차감전순이익'] },
-    { label: '법인세비용',             keys: ['법인세비용'] },
+    { label: '법인세비용',     keys: ['법인세비용'] },
 ];
 
 const ALL_YEARS = ['2020', '2021', '2022', '2023', '2024', '2025'];
 
-/* ===== 타입 ===== */
+/* ── 타입 ── */
+interface DartItem {
+    account_nm:    string;
+    ord:           string;
+    sj_div:        string;
+    thstrm_amount: string;
+}
 interface ChartRow {
     year: string;
     [company: string]: number | null | string;
 }
 
-/* ===== 유틸 ===== */
+/* ── 유틸 ── */
 function parseAmt(s?: string): number | null {
     if (!s || s === '-' || s.trim() === '') return null;
     const n = parseInt(s.replace(/,/g, ''), 10);
@@ -44,7 +50,7 @@ function fmtEok(n: number | null | undefined): string {
     return n.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
-function findAccount(items: any[], keys: readonly string[]): any {
+function findAccount(items: DartItem[], keys: readonly string[]): DartItem | undefined {
     const sorted = [...items].sort((a, b) => (parseInt(a.ord) || 999) - (parseInt(b.ord) || 999));
     for (const k of keys) {
         const hit = sorted.find(i => i.account_nm.trim() === k);
@@ -54,41 +60,37 @@ function findAccount(items: any[], keys: readonly string[]): any {
         const hit = sorted.find(i => i.account_nm.trim().includes(k));
         if (hit) return hit;
     }
-    return null;
 }
 
-function extractIsItems(list: any[]): any[] | null {
+function extractIsItems(list: DartItem[]): DartItem[] | null {
     const is  = list.filter(i => i.sj_div === 'IS');
     if (is.length)  return is;
     const cis = list.filter(i => i.sj_div === 'CIS');
     return cis.length ? cis : null;
 }
 
-/* ===== API 호출: CFS → OFS 폴백 ===== */
+/* ── CFS → OFS 폴백 단일 금액 조회 ── */
+const FATAL = new Set(['010', '011', '020', '100', '800']);
+
 async function fetchAmount(
     corpCode: string,
     year: string,
     reprtCode: string,
     keys: readonly string[],
 ): Promise<number | null> {
-    const FATAL = ['010', '011', '020', '100', '800'];
-    for (const fsDiv of ['CFS', 'OFS']) {
+    for (const fsDiv of ['CFS', 'OFS'] as const) {
         try {
-            const params = new URLSearchParams({
-                corp_code: corpCode, bsns_year: year, reprt_code: reprtCode, fs_div: fsDiv,
-            });
-            const res = await fetch(`/api/financial?${params}`);
+            const params = new URLSearchParams({ corp_code: corpCode, bsns_year: year, reprt_code: reprtCode, fs_div: fsDiv });
+            const res  = await fetch(`/api/financial?${params}`);
             if (!res.ok) continue;
             const data = await res.json();
-            if (FATAL.includes(data.status)) return null;
+            if (FATAL.has(data.status)) return null;
             if (data.status !== '000' || !data.list?.length) continue;
             const items = extractIsItems(data.list);
             if (!items) continue;
             const found = findAccount(items, keys);
-            if (found?.thstrm_amount) {
-                const n = parseAmt(found.thstrm_amount);
-                if (n !== null) return toEok(n);
-            }
+            const n = parseAmt(found?.thstrm_amount);
+            if (n !== null) return toEok(n);
         } catch {
             continue;
         }
@@ -96,11 +98,11 @@ async function fetchAmount(
     return null;
 }
 
-/* ===== 메인 페이지 ===== */
+/* ── 메인 페이지 ── */
 export default function ComparePage() {
     const { selected } = useCompanies();
     const [startYear,  setStartYear]  = useState('2020');
-    const [endYear,    setEndYear]    = useState('2025');
+    const [endYear,    setEndYear]    = useState('2024');
     const [reprtCode,  setReprtCode]  = useState('11011');
     const [accountIdx, setAccountIdx] = useState(2);
     const [loading,    setLoading]    = useState(false);
@@ -113,14 +115,9 @@ export default function ComparePage() {
     );
 
     async function handleSearch() {
-        if (selected.length === 0) {
-            alert('회사를 1개 이상 선택해주세요.');
-            return;
-        }
-        if (ALL_YEARS.indexOf(startYear) > ALL_YEARS.indexOf(endYear)) {
-            alert('시작연도가 종료연도보다 클 수 없습니다.');
-            return;
-        }
+        if (selected.length === 0) { alert('회사를 1개 이상 선택해주세요.'); return; }
+        if (ALL_YEARS.indexOf(startYear) > ALL_YEARS.indexOf(endYear)) { alert('시작연도가 종료연도보다 클 수 없습니다.'); return; }
+
         const account = ACCOUNT_OPTIONS[accountIdx];
         setLoading(true);
         setFetched(false);
@@ -196,33 +193,23 @@ export default function ComparePage() {
                             onClick={handleSearch}
                             disabled={loading || selected.length === 0}
                         >
-                            {loading ? '조회 중...' : '조회'}
+                            {loading ? '조회 중…' : '조회'}
                         </button>
                     </div>
                 </div>
 
-                {/* 회사 미선택 */}
+                {/* 상태 메시지 */}
                 {selected.length === 0 && (
-                    <div className="chart-state">
-                        <div className="state-text">위 검색창에서 회사를 선택해주세요.</div>
-                    </div>
+                    <div className="chart-state"><div className="state-text">위 검색창에서 회사를 선택해주세요.</div></div>
                 )}
-
-                {/* 로딩 */}
                 {selected.length > 0 && loading && (
                     <div className="chart-state">
                         <div className="spinner" />
-                        <div className="state-text">
-                            {years.length}개 연도 × {selected.length}개사 데이터를 불러오는 중...
-                        </div>
+                        <div className="state-text">{years.length}개 연도 × {selected.length}개사 데이터 조회 중...</div>
                     </div>
                 )}
-
-                {/* 초기 안내 */}
                 {selected.length > 0 && !loading && !fetched && (
-                    <div className="chart-state">
-                        <div className="state-text">연도 범위와 항목을 선택하고 조회 버튼을 누르세요.</div>
-                    </div>
+                    <div className="chart-state"><div className="state-text">연도 범위와 항목을 선택하고 조회 버튼을 누르세요.</div></div>
                 )}
 
                 {/* 차트 + 테이블 */}
@@ -234,15 +221,12 @@ export default function ComparePage() {
                                 <span className="chart-unit">단위: 억원</span>
                             </div>
                             <ResponsiveContainer width="100%" height={400}>
-                                <LineChart
-                                    data={chartData}
-                                    margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
-                                >
+                                <LineChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                     <XAxis
                                         dataKey="year"
                                         tick={{ fontSize: 13, fill: '#5f6368' }}
-                                        tickFormatter={(v) => `${v}년`}
+                                        tickFormatter={v => `${v}년`}
                                     />
                                     <YAxis
                                         tick={{ fontSize: 12, fill: '#5f6368' }}
@@ -260,7 +244,7 @@ export default function ComparePage() {
                                                 : '데이터 없음',
                                             name,
                                         ]}
-                                        labelFormatter={(label) => `${label}년`}
+                                        labelFormatter={label => `${label}년`}
                                         contentStyle={{
                                             borderRadius: '8px',
                                             border: '1px solid #e8eaed',
@@ -300,20 +284,14 @@ export default function ComparePage() {
                                         {selected.map((co, i) => (
                                             <tr key={co.corp_code}>
                                                 <td className="acc-name">
-                                                    <span
-                                                        className="co-dot"
-                                                        style={{ background: COMPANY_COLORS[i] }}
-                                                    />
+                                                    <span className="co-dot" style={{ background: COMPANY_COLORS[i] }} />
                                                     {co.corp_name}
                                                 </td>
                                                 {years.map(y => {
                                                     const row = chartData.find(r => r.year === y);
                                                     const val = row?.[co.corp_name] as number | null | undefined;
                                                     return (
-                                                        <td
-                                                            key={y}
-                                                            className={`num${val != null && val < 0 ? ' neg' : ''}`}
-                                                        >
+                                                        <td key={y} className={`num${(val ?? 0) < 0 ? ' neg' : ''}`}>
                                                             {fmtEok(val ?? null)}
                                                         </td>
                                                     );

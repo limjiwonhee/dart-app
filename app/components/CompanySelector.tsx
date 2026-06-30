@@ -20,11 +20,11 @@ export default function CompanySelector() {
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        function handler(e: MouseEvent) {
+        const handler = (e: MouseEvent) => {
             if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
                 setShowDrop(false);
             }
-        }
+        };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
@@ -32,17 +32,21 @@ export default function CompanySelector() {
     async function handleSearch() {
         const q = query.trim();
         if (!q) { inputRef.current?.focus(); return; }
+
         setBusy(true);
         setDropMsg('');
         setResults([]);
         setShowDrop(true);
+
         try {
             const res  = await fetch(`/api/search?query=${encodeURIComponent(q)}`);
             const data = await res.json();
-            if (data.message && data.status !== '000') {
-                setDropMsg(data.message);
+
+            if (data.status && data.status !== '000') {
+                setDropMsg(data.message ?? '검색 오류');
                 return;
             }
+
             const list: SelectedCompany[] = data.list ?? [];
             setResults(list);
             if (list.length === 0) setDropMsg('검색 결과가 없습니다.');
@@ -65,14 +69,13 @@ export default function CompanySelector() {
         <div className="co-selector">
             <div className="selector-label">회사 선택 (최대 3개)</div>
 
-            {/* 검색 입력 + 드롭다운 */}
             <div className="co-selector-row" ref={wrapRef}>
                 <div className="selector-input-group">
                     <input
                         ref={inputRef}
                         type="text"
                         className="selector-input"
-                        placeholder={maxed ? '최대 3개 선택됨 — X 버튼으로 제거 후 추가' : '회사명 검색 (예: 삼성전자)'}
+                        placeholder={maxed ? '최대 3개 선택됨 — × 버튼으로 제거 후 추가' : '회사명 입력 후 검색 (예: 삼성전자)'}
                         value={query}
                         onChange={e => setQuery(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && !maxed && handleSearch()}
@@ -83,7 +86,7 @@ export default function CompanySelector() {
                         onClick={handleSearch}
                         disabled={busy || maxed}
                     >
-                        {busy ? '...' : '검색'}
+                        {busy ? '…' : '검색'}
                     </button>
                 </div>
 
@@ -115,7 +118,6 @@ export default function CompanySelector() {
                 )}
             </div>
 
-            {/* 선택된 회사 칩 */}
             {selected.length > 0 && (
                 <div className="co-chips">
                     {selected.map((co, i) => (
@@ -134,9 +136,7 @@ export default function CompanySelector() {
                                 className="chip-remove"
                                 onClick={() => removeCompany(co.corp_code)}
                                 aria-label={`${co.corp_name} 제거`}
-                            >
-                                ×
-                            </button>
+                            >×</button>
                         </div>
                     ))}
                 </div>
