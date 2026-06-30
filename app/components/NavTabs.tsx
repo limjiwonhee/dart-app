@@ -11,7 +11,7 @@ export default function NavTabs() {
                 개별 조회
             </Link>
             <Link href="/compare" className={`nav-tab${pathname === '/compare' ? ' active' : ''}`}>
-                3사 비교
+                비교하기
             </Link>
         </nav>
     );
