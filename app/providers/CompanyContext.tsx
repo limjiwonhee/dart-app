@@ -15,16 +15,10 @@ interface CompanyContextValue {
     removeCompany: (corp_code: string) => void;
 }
 
-const DEFAULT_COMPANIES: SelectedCompany[] = [
-    { corp_code: '00126380', corp_name: '삼성전자',     corp_cls: 'Y', stock_code: '005930' },
-    { corp_code: '00164779', corp_name: 'SK하이닉스',   corp_cls: 'Y', stock_code: '000660' },
-    { corp_code: '01105153', corp_name: '두산로보틱스', corp_cls: 'K', stock_code: '454910' },
-];
-
 const CompanyContext = createContext<CompanyContextValue | null>(null);
 
 export function CompanyProvider({ children }: { children: ReactNode }) {
-    const [selected, setSelected] = useState<SelectedCompany[]>(DEFAULT_COMPANIES);
+    const [selected, setSelected] = useState<SelectedCompany[]>([]);
 
     function addCompany(co: SelectedCompany) {
         setSelected(prev => {

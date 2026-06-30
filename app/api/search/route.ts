@@ -29,8 +29,9 @@ export async function GET(request: Request) {
 
     try {
         const all  = getCorpList();
+        const q    = query.toLowerCase();
         const list = all
-            .filter(co => co.corp_name.includes(query))
+            .filter(co => co.corp_name.toLowerCase().includes(q))
             .slice(0, 20);
 
         console.log(`[search] "${query}" → ${list.length}건`);
